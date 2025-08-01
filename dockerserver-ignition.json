@@ -29,7 +29,7 @@
         "groups": [
           "docker"
         ],
-        "name": "docker",
+        "name": "dockeruser",
         "shell": "/bin/bash",
         "system": true
       }
