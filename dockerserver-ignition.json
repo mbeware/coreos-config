@@ -1,0 +1,111 @@
+{
+  "ignition": {
+    "version": "3.5.0"
+  },
+  "passwd": {
+    "users": [
+      {
+        "groups": [
+          "wheel",
+          "sudo",
+          "docker"
+        ],
+        "name": "mbeware",
+        "sshAuthorizedKeys": [
+          "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAACAQDDOi+VGh8TsaigF7GeJ7VDaTTUtKcWXRGqfP/Bo9XLleYJzIulwOy/7d4ZXZcvK2vQJSqF78BRsgCffwpXjmWjI2tZOLVUKcnItILbSD72o/XPlGVxP4qXYW1inXdfw33g3HGKSUZbnQzgSzprppnWRu1eLeMJ8GI3AFAs4bWCaibOA/XJskT7XWG4vy95uiMVhnYeCiWVXpll7STACOe/j6wfuAkzcgkRvS2ItvdgbLZrFAmBEkIyRxjYo9NUKYW+wjqidlWrq5/sRr6ikF+HyAADl36zbGoJNt/qIDbOxVIJy/0RcRjSzeHEWDLrbLDg7079sMEKbBpiMRnK7lNiEbMqaEL3hRxe4Mc+GYkH+qBtSHGcLSjaFaPpFS+7O/N4+/pvMEYjIDROKjpGQlW3rVPWUwcHMs13nUXUTxZDawXMKxGbrWLRIllZLWm06JydeQ0mN0Yfz+Dx0sOS5KU6RFYajV34zEraYE3dibpVXVnr/OeoN3ujtoh6uB2CSr+35ldXBl/BPgKWe1wQr3+S8eQJEfgE08S/zmktlY+A1pp00MsLGsfxc6jbItG1SXj97uAwGKQME+Y82TrTA/7KAITHmYmigjVuySR6DYHhF0+TK4c17yl2VyflVfV+Qa+uA8iQk/VdtOpleXkobaV5GH6Cb5e7OBWzRwFgYE98HQ=="
+        ],
+        "shell": "/bin/bash"
+      },
+      {
+        "groups": [
+          "wheel",
+          "sudo",
+          "docker"
+        ],
+        "name": "devin",
+        "shell": "/bin/bash"
+      },
+      {
+        "groups": [
+          "docker"
+        ],
+        "name": "docker",
+        "shell": "/bin/bash",
+        "system": true
+      }
+    ]
+  },
+  "storage": {
+    "directories": [
+      {
+        "path": "/mnt/nasmnt",
+        "mode": 493
+      },
+      {
+        "path": "/mnt/allvideo",
+        "mode": 493
+      }
+    ],
+    "files": [
+      {
+        "path": "/etc/hostname",
+        "contents": {
+          "compression": "",
+          "source": "data:,dockerserver"
+        },
+        "mode": 420
+      },
+      {
+        "path": "/etc/NetworkManager/system-connections/static.nmconnection",
+        "contents": {
+          "compression": "gzip",
+          "source": "data:;base64,H4sIAAAAAAAC/0yMXQqDMBCE3+cwKQlBLGVPIj4sZtFA3Uiytnj70l/KwDzMfHzDVFRlslx0RE7UjC1PsGMTElukqhh4t/LhyOouwPD9RmDI2y2OWMWWkmhl3fkKTqlKa9LIn4PzXe+CC/4UImY2ufPxt3skbdS7Vy7Pji6+vd3Pm2ctVfAIAAD//4mIsjqwAAAA"
+        },
+        "mode": 384
+      }
+    ]
+  },
+  "systemd": {
+    "units": [
+      {
+        "enabled": true,
+        "name": "docker.service"
+      },
+      {
+        "enabled": true,
+        "name": "cockpit.socket"
+      },
+      {
+        "enabled": true,
+        "name": "sshd.service"
+      },
+      {
+        "enabled": true,
+        "name": "smb.service"
+      },
+      {
+        "enabled": true,
+        "name": "nmb.service"
+      },
+      {
+        "enabled": true,
+        "name": "tailscaled.service"
+      },
+      {
+        "contents": "[Unit]\nDescription=Install additional packages\nAfter=network-online.target\nWants=network-online.target\n\n[Service]\nType=oneshot\nExecStart=/usr/bin/rpm-ostree install --apply-live git python3 python3-pip cockpit samba samba-client cifs-utils xorg-x11-xauth openssh-clients\nExecStart=/usr/bin/curl -fsSL https://pkgs.tailscale.com/stable/fedora/tailscale.repo -o /etc/yum.repos.d/tailscale.repo\nExecStart=/usr/bin/rpm-ostree install --apply-live tailscale\nExecStart=/usr/bin/pip3 install --user ansible docker-compose\nRemainAfterExit=yes\n\n[Install]\nWantedBy=multi-user.target\n",
+        "enabled": true,
+        "name": "install-packages.service"
+      },
+      {
+        "contents": "[Unit]\nDescription=Setup Samba configuration\nAfter=install-packages.service\nRequires=install-packages.service\n\n[Service]\nType=oneshot\nExecStart=/bin/bash -c 'echo \"[nasmnt]\\n  path = /mnt/nasmnt\\n  browseable = yes\\n  writable = yes\\n  guest ok = yes\\n  read only = no\" \u003e\u003e /etc/samba/smb.conf'\nExecStart=/usr/bin/systemctl enable smb nmb\nRemainAfterExit=yes\n\n[Install]\nWantedBy=multi-user.target\n",
+        "enabled": true,
+        "name": "setup-samba.service"
+      },
+      {
+        "contents": "[Unit]\nDescription=Mount AllVideo share\nAfter=network-online.target\nWants=network-online.target\n\n[Service]\nType=oneshot\nExecStart=/usr/bin/mount -t cifs //192.168.2.31/AllVideo /mnt/allvideo -o guest,uid=1000,gid=1000\nRemainAfterExit=yes\n\n[Install]\nWantedBy=multi-user.target\n",
+        "enabled": true,
+        "name": "mount-allvideo.service"
+      }
+    ]
+  }
+}

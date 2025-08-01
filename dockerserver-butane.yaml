@@ -1,0 +1,119 @@
+variant: fcos
+version: 1.6.0
+
+passwd:
+  users:
+    - name: mbeware
+      ssh_authorized_keys:
+        - ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAACAQDDOi+VGh8TsaigF7GeJ7VDaTTUtKcWXRGqfP/Bo9XLleYJzIulwOy/7d4ZXZcvK2vQJSqF78BRsgCffwpXjmWjI2tZOLVUKcnItILbSD72o/XPlGVxP4qXYW1inXdfw33g3HGKSUZbnQzgSzprppnWRu1eLeMJ8GI3AFAs4bWCaibOA/XJskT7XWG4vy95uiMVhnYeCiWVXpll7STACOe/j6wfuAkzcgkRvS2ItvdgbLZrFAmBEkIyRxjYo9NUKYW+wjqidlWrq5/sRr6ikF+HyAADl36zbGoJNt/qIDbOxVIJy/0RcRjSzeHEWDLrbLDg7079sMEKbBpiMRnK7lNiEbMqaEL3hRxe4Mc+GYkH+qBtSHGcLSjaFaPpFS+7O/N4+/pvMEYjIDROKjpGQlW3rVPWUwcHMs13nUXUTxZDawXMKxGbrWLRIllZLWm06JydeQ0mN0Yfz+Dx0sOS5KU6RFYajV34zEraYE3dibpVXVnr/OeoN3ujtoh6uB2CSr+35ldXBl/BPgKWe1wQr3+S8eQJEfgE08S/zmktlY+A1pp00MsLGsfxc6jbItG1SXj97uAwGKQME+Y82TrTA/7KAITHmYmigjVuySR6DYHhF0+TK4c17yl2VyflVfV+Qa+uA8iQk/VdtOpleXkobaV5GH6Cb5e7OBWzRwFgYE98HQ==
+      groups:
+        - wheel
+        - sudo
+        - docker
+      shell: /bin/bash
+    - name: devin
+      groups:
+        - wheel
+        - sudo
+        - docker
+      shell: /bin/bash
+    - name: docker
+      groups:
+        - docker
+      shell: /bin/bash
+      system: true
+
+storage:
+  directories:
+    - path: /mnt/nasmnt
+      mode: 0755
+    - path: /mnt/allvideo
+      mode: 0755
+  files:
+    - path: /etc/hostname
+      mode: 0644
+      contents:
+        inline: dockerserver
+    - path: /etc/NetworkManager/system-connections/static.nmconnection
+      mode: 0600
+      contents:
+        inline: |
+          [connection]
+          id=static
+          type=ethernet
+          autoconnect=true
+
+          [ethernet]
+
+          [ipv4]
+          method=manual
+          addresses=192.168.2.21/24
+          gateway=192.168.2.1
+          dns=8.8.8.8;8.8.4.4
+
+          [ipv6]
+          method=ignore
+
+systemd:
+  units:
+    - name: docker.service
+      enabled: true
+    - name: cockpit.socket
+      enabled: true
+    - name: sshd.service
+      enabled: true
+    - name: smb.service
+      enabled: true
+    - name: nmb.service
+      enabled: true
+    - name: tailscaled.service
+      enabled: true
+    - name: install-packages.service
+      enabled: true
+      contents: |
+        [Unit]
+        Description=Install additional packages
+        After=network-online.target
+        Wants=network-online.target
+
+        [Service]
+        Type=oneshot
+        ExecStart=/usr/bin/rpm-ostree install --apply-live git python3 python3-pip cockpit samba samba-client cifs-utils xorg-x11-xauth openssh-clients
+        ExecStart=/usr/bin/curl -fsSL https://pkgs.tailscale.com/stable/fedora/tailscale.repo -o /etc/yum.repos.d/tailscale.repo
+        ExecStart=/usr/bin/rpm-ostree install --apply-live tailscale
+        ExecStart=/usr/bin/pip3 install --user ansible docker-compose
+        RemainAfterExit=yes
+
+        [Install]
+        WantedBy=multi-user.target
+    - name: setup-samba.service
+      enabled: true
+      contents: |
+        [Unit]
+        Description=Setup Samba configuration
+        After=install-packages.service
+        Requires=install-packages.service
+
+        [Service]
+        Type=oneshot
+        ExecStart=/bin/bash -c 'echo "[nasmnt]\n  path = /mnt/nasmnt\n  browseable = yes\n  writable = yes\n  guest ok = yes\n  read only = no" >> /etc/samba/smb.conf'
+        ExecStart=/usr/bin/systemctl enable smb nmb
+        RemainAfterExit=yes
+
+        [Install]
+        WantedBy=multi-user.target
+    - name: mount-allvideo.service
+      enabled: true
+      contents: |
+        [Unit]
+        Description=Mount AllVideo share
+        After=network-online.target
+        Wants=network-online.target
+
+        [Service]
+        Type=oneshot
+        ExecStart=/usr/bin/mount -t cifs //192.168.2.31/AllVideo /mnt/allvideo -o guest,uid=1000,gid=1000
+        RemainAfterExit=yes
+
+        [Install]
+        WantedBy=multi-user.target
