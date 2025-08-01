@@ -27,7 +27,7 @@ storage:
   directories:
     - path: /mnt/nasmnt
       mode: 0755
-    - path: /mnt/allvideo
+    - path: /mnt/AllVideo
       mode: 0755
   files:
     - path: /etc/hostname
@@ -112,7 +112,7 @@ systemd:
 
         [Service]
         Type=oneshot
-        ExecStart=/usr/bin/mount -t cifs //192.168.2.31/AllVideo /mnt/allvideo -o guest,uid=1000,gid=1000
+        ExecStart=/usr/bin/mount -t cifs //192.168.2.31/AllVideo /mnt/AllVideo -o guest,uid=1000,gid=1000
         RemainAfterExit=yes
 
         [Install]
